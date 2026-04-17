@@ -1751,6 +1751,7 @@ def select_provider_and_model(args=None):
         "huggingface",
         "xiaomi",
         "arcee",
+        "gmi",
         "nvidia",
         "ollama-cloud",
     ):
@@ -7657,6 +7658,7 @@ For more help on a command:
             "kilocode",
             "xiaomi",
             "arcee",
+            "gmi",
             "nvidia",
         ],
         default=None,
