@@ -37,7 +37,7 @@ Works on Linux, macOS, WSL2, and Android via Termux. The installer handles the p
 
 > **Android / Termux:** The tested manual path is documented in the [Termux guide](https://hermes-agent.nousresearch.com/docs/getting-started/termux). On Termux, Hermes installs a curated `.[termux]` extra because the full `.[all]` extra currently pulls Android-incompatible voice dependencies.
 >
-> **Windows:** Native Windows is not supported. Please install [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install) and run the command above.
+> **Windows:** See [Windows Installation](#windows-installation) below. WSL2 is also supported via the command above.
 
 After installation:
 
@@ -81,6 +81,70 @@ Hermes has two entry points: start the terminal UI with `hermes`, or run the gat
 | Platform-specific status | `/platforms` | `/status`, `/sethome` |
 
 For the full command lists, see the [CLI guide](https://hermes-agent.nousresearch.com/docs/user-guide/cli) and the [Messaging Gateway guide](https://hermes-agent.nousresearch.com/docs/user-guide/messaging).
+
+---
+
+## Windows Installation
+
+Hermes supports native Windows 10/11 through `hermes.bat`. The script auto-detects the environment and sets up everything on first run.
+
+### Prerequisites
+
+- **Python 3.10+** (3.11 recommended) — [Download](https://www.python.org/downloads/) or `winget install Python.Python.3.11`
+  - Important: Check **"Add Python to PATH"** during installation
+- **Git** — [Download](https://git-scm.com/download/win)
+
+### Quick Start
+
+```cmd
+git clone https://github.com/NousResearch/hermes-agent.git
+cd hermes-agent
+hermes.bat
+```
+
+On first run, `hermes.bat` will automatically:
+1. Find Python (searches bundled, venv, PATH, and common install locations)
+2. Create a virtual environment (`venv\`)
+3. Install all dependencies
+4. Set up `~/.hermes/` with `.env` and `config.yaml` templates
+5. Launch the interactive CLI
+
+### Available Commands
+
+```cmd
+hermes.bat              Start interactive chat (auto-setup on first run)
+hermes.bat install      Force full installation / setup
+hermes.bat setup        Run interactive setup wizard
+hermes.bat config       View/edit configuration
+hermes.bat doctor       Diagnose issues
+hermes.bat help         Show help
+```
+
+### Environment Variables
+
+| Variable | Purpose |
+|----------|---------|
+| `HERMES_SKIP_AUTOSETUP=1` | Disable auto-setup (only find Python and run) |
+| `HERMES_NO_CHCP=1` | Skip codepage switch (fix garbled CJK output) |
+| `HERMES_VERBOSE=1` | Show detailed setup progress |
+
+### Full Installer (PowerShell)
+
+For a complete installation including Python provisioning, Node.js, ripgrep, and ffmpeg:
+
+```powershell
+irm https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.ps1 | iex
+```
+
+### Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| Python not found | Install with "Add to PATH" checked, or use `winget install Python.Python.3.11` |
+| Long path errors | Move project to `C:\hermes\`, or enable long paths: `reg add HKLM\SYSTEM\CurrentControlSet\Control\FileSystem /v LongPathsEnabled /t REG_DWORD /d 1 /f` |
+| pip install fails | Add Windows Defender exclusion for the project directory |
+| Network/proxy errors | Set `HTTP_PROXY` and `HTTPS_PROXY` environment variables |
+| DLL load failures | Install [Visual C++ Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist) |
 
 ---
 
