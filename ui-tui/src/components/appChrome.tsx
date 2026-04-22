@@ -91,7 +91,11 @@ export function GoodVibesHeart({ tick, t }: { tick: number; t: Theme }) {
     return () => clearTimeout(id)
   }, [t.color.amber, tick])
 
-  return <Text color={color}>{active ? '♥' : ' '}</Text>
+  if (!active) {
+    return null
+  }
+
+  return <Text color={color}>♥</Text>
 }
 
 export function StatusRule({
