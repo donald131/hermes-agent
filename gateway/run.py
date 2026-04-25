@@ -980,7 +980,7 @@ class GatewayRunner:
             if override_runtime.get("api_key"):
                 logger.debug(
                     "Session model override (fast): session=%s config_model=%s -> override_model=%s provider=%s",
-                    (resolved_session_key or "")[:30], model, override_model,
+                    resolved_session_key or "", model, override_model,
                     override_runtime.get("provider"),
                 )
                 return override_model, override_runtime
@@ -988,12 +988,12 @@ class GatewayRunner:
             # resolution and apply model/provider from the override on top.
             logger.debug(
                 "Session model override (no api_key, fallback): session=%s config_model=%s override_model=%s",
-                (resolved_session_key or "")[:30], model, override_model,
+                resolved_session_key or "", model, override_model,
             )
         else:
             logger.debug(
                 "No session model override: session=%s config_model=%s override_keys=%s",
-                (resolved_session_key or "")[:30], model,
+                resolved_session_key or "", model,
                 list(self._session_model_overrides.keys())[:5] if self._session_model_overrides else "[]",
             )
 
@@ -1564,7 +1564,7 @@ class GatewayRunner:
                 continue
             try:
                 agent.interrupt(reason)
-                logger.debug("Interrupted running agent for session %s during shutdown", session_key[:20])
+                logger.debug("Interrupted running agent for session %s during shutdown", session_key)
             except Exception as e:
                 logger.debug("Failed interrupting agent during shutdown: %s", e)
 
@@ -1736,7 +1736,7 @@ class GatewayRunner:
                     logger.warning(
                         "Auto-suspended stuck session %s (active across %d "
                         "consecutive restarts — likely a stuck loop)",
-                        session_key[:30], counts[session_key],
+                        session_key, counts[session_key],
                     )
             except Exception:
                 pass
@@ -2556,7 +2556,7 @@ class GatewayRunner:
                     except Exception as _e:
                         logger.debug(
                             "mark_resume_pending failed for %s: %s",
-                            _sk[:20], _e,
+                            _sk, _e,
                         )
                 self._interrupt_running_agents(
                     _INTERRUPT_REASON_GATEWAY_RESTART if self._restart_requested else _INTERRUPT_REASON_GATEWAY_SHUTDOWN
@@ -3222,7 +3222,7 @@ class GatewayRunner:
                 logger.warning(
                     "Evicting stale _running_agents entry for %s "
                     "(age: %.0fs, idle: %.0fs, timeout: %.0fs)%s",
-                    _quick_key[:30], _stale_age, _stale_idle,
+                    _quick_key, _stale_age, _stale_idle,
                     _raw_stale_timeout, _stale_detail,
                 )
                 self._invalidate_session_run_generation(
@@ -3258,7 +3258,7 @@ class GatewayRunner:
                     interrupt_reason=_INTERRUPT_REASON_STOP,
                     invalidation_reason="stop_command",
                 )
-                logger.info("STOP for session %s — agent interrupted, session lock released", _quick_key[:20])
+                logger.info("STOP for session %s — agent interrupted, session lock released", _quick_key)
                 return "⚡ Stopped. You can continue this session."
 
             # /reset and /new must bypass the running-agent guard so they
@@ -3324,7 +3324,7 @@ class GatewayRunner:
                     try:
                         accepted = running_agent.steer(steer_text)
                     except Exception as exc:
-                        logger.warning("Steer failed for session %s: %s", _quick_key[:20], exc)
+                        logger.warning("Steer failed for session %s: %s", _quick_key, exc)
                         return f"⚠️ Steer failed: {exc}"
                     if accepted:
                         preview = steer_text[:60] + ("..." if len(steer_text) > 60 else "")
@@ -3407,7 +3407,7 @@ class GatewayRunner:
                 )
 
             if event.message_type == MessageType.PHOTO:
-                logger.debug("PRIORITY photo follow-up for session %s — queueing without interrupt", _quick_key[:20])
+                logger.debug("PRIORITY photo follow-up for session %s — queueing without interrupt", _quick_key)
                 adapter = self.adapters.get(source.platform)
                 if adapter:
                     merge_pending_message_event(adapter._pending_messages, _quick_key, event)
@@ -3427,7 +3427,7 @@ class GatewayRunner:
                 logger.debug(
                     "Telegram follow-up arrived %.2fs after run start for %s — queueing without interrupt",
                     time.time() - _started_at,
-                    _quick_key[:20],
+                    _quick_key,
                 )
                 adapter = self.adapters.get(source.platform)
                 if adapter:
@@ -3445,7 +3445,7 @@ class GatewayRunner:
                 if event.get_command() == "stop":
                     # Force-clean the sentinel so the session is unlocked.
                     self._release_running_agent_state(_quick_key)
-                    logger.info("HARD STOP (pending) for session %s — sentinel cleared", _quick_key[:20])
+                    logger.info("HARD STOP (pending) for session %s — sentinel cleared", _quick_key)
                     return "⚡ Force-stopped. The agent was still starting — session unlocked."
                 # Queue the message so it will be picked up after the
                 # agent starts.
@@ -3467,10 +3467,10 @@ class GatewayRunner:
                     else f"⏳ Gateway is {self._status_action_gerund()} and is not accepting another turn right now."
                 )
             if self._busy_input_mode == "queue":
-                logger.debug("PRIORITY queue follow-up for session %s", _quick_key[:20])
+                logger.debug("PRIORITY queue follow-up for session %s", _quick_key)
                 self._queue_or_replace_pending_event(_quick_key, event)
                 return None
-            logger.debug("PRIORITY interrupt for session %s", _quick_key[:20])
+            logger.debug("PRIORITY interrupt for session %s", _quick_key)
             running_agent.interrupt(event.text)
             if _quick_key in self._pending_messages:
                 self._pending_messages[_quick_key] += "\n" + event.text
@@ -4493,7 +4493,7 @@ class GatewayRunner:
             if not self._is_session_run_current(_quick_key, run_generation):
                 logger.info(
                     "Discarding stale agent result for %s — generation %d is no longer current",
-                    _quick_key[:20] if _quick_key else "?",
+                    _quick_key or "?",
                     run_generation,
                 )
                 _stale_adapter = self.adapters.get(source.platform)
@@ -4544,7 +4544,7 @@ class GatewayRunner:
                 except Exception as _e:
                     logger.debug(
                         "clear_resume_pending failed for %s: %s",
-                        session_key[:20], _e,
+                        session_key, _e,
                     )
 
             # Surface error details when the agent failed silently (final_response=None)
@@ -5183,7 +5183,7 @@ class GatewayRunner:
                 interrupt_reason=_INTERRUPT_REASON_STOP,
                 invalidation_reason="stop_command_pending",
             )
-            logger.info("STOP (pending) for session %s — sentinel cleared", session_key[:20])
+            logger.info("STOP (pending) for session %s — sentinel cleared", session_key)
             return "⚡ Stopped. The agent hadn't started yet — you can continue this session."
         if agent:
             # Force-clean the session lock so a truly hung agent doesn't
@@ -8737,7 +8737,7 @@ class GatewayRunner:
         if reason:
             logger.info(
                 "Invalidated run generation for %s → %d (%s)",
-                session_key[:20],
+                session_key,
                 generation,
                 reason,
             )
@@ -9144,7 +9144,7 @@ class GatewayRunner:
                         if not _run_still_current():
                             logger.info(
                                 "Discarding stale proxy stream for %s — generation %d is no longer current",
-                                session_key[:20] if session_key else "?",
+                                session_key or "?",
                                 run_generation or 0,
                             )
                             return {
@@ -9208,7 +9208,7 @@ class GatewayRunner:
         if not _run_still_current():
             logger.info(
                 "Discarding stale proxy result for %s — generation %d is no longer current",
-                session_key[:20] if session_key else "?",
+                session_key or "?",
                 run_generation or 0,
             )
             return {
@@ -9650,7 +9650,7 @@ class GatewayRunner:
                 )
                 logger.debug(
                     "run_agent resolved: model=%s provider=%s session=%s",
-                    model, runtime_kwargs.get("provider"), (session_key or "")[:30],
+                    model, runtime_kwargs.get("provider"), session_key or "",
                 )
             except Exception as exc:
                 return {
@@ -10261,7 +10261,7 @@ class GatewayRunner:
             ):
                 logger.info(
                     "Skipping stale agent promotion for %s — generation %s is no longer current",
-                    (session_key or "")[:20],
+                    session_key or "",
                     run_generation,
                 )
                 return
@@ -10408,7 +10408,7 @@ class GatewayRunner:
                             logger.info(
                                 "Backup interrupt detected for session %s "
                                 "(monitor task state: %s)",
-                                session_key[:20],
+                                session_key,
                                 "done" if interrupt_monitor.done() else "running",
                             )
                             _backup_agent.interrupt(_bp_text)
@@ -10468,7 +10468,7 @@ class GatewayRunner:
                             logger.info(
                                 "Backup interrupt detected for session %s "
                                 "(monitor task state: %s)",
-                                session_key[:20],
+                                session_key,
                                 "done" if interrupt_monitor.done() else "running",
                             )
                             _backup_agent.interrupt(_bp_text)
@@ -10570,7 +10570,7 @@ class GatewayRunner:
                     if _is_control_interrupt_message(interrupt_message):
                         logger.info(
                             "Ignoring control interrupt message for session %s: %s",
-                            session_key[:20] if session_key else "?",
+                            session_key or "?",
                             interrupt_message,
                         )
                     else:
@@ -10614,7 +10614,7 @@ class GatewayRunner:
             if self._draining and (pending_event or pending):
                 logger.info(
                     "Discarding pending follow-up for session %s during gateway %s",
-                    session_key[:20] if session_key else "?",
+                    session_key or "?",
                     self._status_action_label(),
                 )
                 pending_event = None
@@ -10671,7 +10671,7 @@ class GatewayRunner:
                         try:
                             logger.info(
                                 "Queued follow-up for session %s: final stream delivery not confirmed; sending first response before continuing.",
-                                session_key[:20] if session_key else "?",
+                                session_key or "?",
                             )
                             await adapter.send(
                                 source.chat_id,
@@ -10683,7 +10683,7 @@ class GatewayRunner:
                     elif first_response:
                         logger.info(
                             "Queued follow-up for session %s: skipping resend because final streamed delivery was confirmed.",
-                            session_key[:20] if session_key else "?",
+                            session_key or "?",
                         )
                     # Release deferred bg-review notifications now that the
                     # first response has been delivered.  Pop from the
@@ -10818,7 +10818,7 @@ class GatewayRunner:
             if not _is_empty_sentinel and (_streamed or _previewed):
                 logger.info(
                     "Suppressing normal final send for session %s: final delivery already confirmed (streamed=%s previewed=%s).",
-                    session_key[:20] if session_key else "?",
+                    session_key or "?",
                     _streamed,
                     _previewed,
                 )
