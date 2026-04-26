@@ -9,11 +9,12 @@ import { isActionMod, isMac, isMacActionFallback } from '../lib/platform.js'
 type InkExt = typeof Ink & {
   stringWidth: (s: string) => number
   useDeclaredCursor: (a: { line: number; column: number; active: boolean }) => (el: any) => void
+  useStdout: () => { stdout?: NodeJS.WriteStream }
   useTerminalFocus: () => boolean
 }
 
 const ink = Ink as unknown as InkExt
-const { Box, Text, useStdin, useInput, stringWidth, useDeclaredCursor, useTerminalFocus } = ink
+const { Box, Text, useStdin, useInput, useStdout, stringWidth, useDeclaredCursor, useTerminalFocus } = ink
 
 const ESC = '\x1b'
 const INV = `${ESC}[7m`
@@ -328,6 +329,7 @@ export function TextInput({
   const [sel, setSel] = useState<null | { end: number; start: number }>(null)
   const fwdDel = useFwdDelete(focus)
   const termFocus = useTerminalFocus()
+  const { stdout } = useStdout()
 
   const curRef = useRef(cur)
   const selRef = useRef<null | { end: number; start: number }>(null)
@@ -817,6 +819,7 @@ export function TextInput({
               !selected &&
               !mask &&
               !placeholder &&
+              !!stdout?.isTTY &&
               c === v.length &&
               !v.includes('\n') &&
               stringWidth(text) === text.length &&
@@ -826,6 +829,7 @@ export function TextInput({
             c += text.length
 
             if (simpleAppend) {
+              stdout!.write(text)
               commit(v, c, true, false)
 
               return
