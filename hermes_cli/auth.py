@@ -43,7 +43,7 @@ import yaml
 
 from hermes_cli.config import get_hermes_home, get_config_path, read_raw_config
 from hermes_constants import OPENROUTER_BASE_URL
-from utils import atomic_replace, is_truthy_value
+from utils import atomic_replace, atomic_yaml_write, is_truthy_value
 
 logger = logging.getLogger(__name__)
 
@@ -3629,7 +3629,7 @@ def _update_config_for_provider(
 
     config["model"] = model_cfg
 
-    config_path.write_text(yaml.safe_dump(config, sort_keys=False))
+    atomic_yaml_write(config_path, config, sort_keys=False)
     return config_path
 
 
@@ -3688,7 +3688,7 @@ def _reset_config_provider() -> Path:
         model["provider"] = "auto"
         if "base_url" in model:
             model["base_url"] = OPENROUTER_BASE_URL
-    config_path.write_text(yaml.safe_dump(config, sort_keys=False))
+    atomic_yaml_write(config_path, config, sort_keys=False)
     return config_path
 
 
