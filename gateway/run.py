@@ -8660,6 +8660,8 @@ class GatewayRunner:
             "session_key": session_key,
             "timestamp": datetime.now().isoformat(),
         }
+        if event.source.thread_id:
+            pending["thread_id"] = event.source.thread_id
         _tmp_pending = pending_path.with_suffix(".tmp")
         _tmp_pending.write_text(json.dumps(pending))
         _tmp_pending.replace(pending_path)
@@ -8745,6 +8747,7 @@ class GatewayRunner:
         adapter = None
         chat_id = None
         session_key = None
+        metadata = None
         for path in (claimed_path, pending_path):
             if path.exists():
                 try:
@@ -8752,6 +8755,8 @@ class GatewayRunner:
                     platform_str = pending.get("platform")
                     chat_id = pending.get("chat_id")
                     session_key = pending.get("session_key")
+                    thread_id = pending.get("thread_id")
+                    metadata = {"thread_id": thread_id} if thread_id else None
                     if platform_str and chat_id:
                         platform = Platform(platform_str)
                         adapter = self.adapters.get(platform)
@@ -8799,7 +8804,7 @@ class GatewayRunner:
             chunks = [clean[i:i + max_chunk] for i in range(0, len(clean), max_chunk)]
             for chunk in chunks:
                 try:
-                    await adapter.send(chat_id, f"```\n{chunk}\n```")
+                    await adapter.send(chat_id, f"```\n{chunk}\n```", metadata=metadata)
                 except Exception as e:
                     logger.debug("Update stream send failed: %s", e)
 
@@ -8822,9 +8827,13 @@ class GatewayRunner:
                     exit_code_raw = exit_code_path.read_text().strip() or "1"
                     exit_code = int(exit_code_raw)
                     if exit_code == 0:
-                        await adapter.send(chat_id, "✅ Hermes update finished.")
+                        await adapter.send(chat_id, "✅ Hermes update finished.", metadata=metadata)
                     else:
-                        await adapter.send(chat_id, "❌ Hermes update failed (exit code {}).".format(exit_code))
+                        await adapter.send(
+                            chat_id,
+                            "❌ Hermes update failed (exit code {}).".format(exit_code),
+                            metadata=metadata,
+                        )
                     logger.info("Update finished (exit=%s), notified %s", exit_code, session_key)
                 except Exception as e:
                     logger.warning("Update final notification failed: %s", e)
@@ -8874,6 +8883,7 @@ class GatewayRunner:
                                     prompt=prompt_text,
                                     default=default,
                                     session_key=session_key,
+                                    metadata=metadata,
                                 )
                                 sent_buttons = True
                             except Exception as btn_err:
@@ -8885,7 +8895,8 @@ class GatewayRunner:
                                 f"⚕ **Update needs your input:**\n\n"
                                 f"{prompt_text}{default_hint}\n\n"
                                 f"Reply `/approve` (yes) or `/deny` (no), "
-                                f"or type your answer directly."
+                                f"or type your answer directly.",
+                                metadata=metadata,
                             )
                         self._update_prompt_pending[session_key] = True
                         # Remove the prompt file so it isn't re-read on the
@@ -8905,7 +8916,11 @@ class GatewayRunner:
             exit_code_path.write_text("124")
             await _flush_buffer()
             try:
-                await adapter.send(chat_id, "❌ Hermes update timed out after 30 minutes.")
+                await adapter.send(
+                    chat_id,
+                    "❌ Hermes update timed out after 30 minutes.",
+                    metadata=metadata,
+                )
             except Exception:
                 pass
             for p in (pending_path, claimed_path, output_path,
@@ -8947,6 +8962,7 @@ class GatewayRunner:
             pending = json.loads(claimed_path.read_text())
             platform_str = pending.get("platform")
             chat_id = pending.get("chat_id")
+            thread_id = pending.get("thread_id")
 
             if not exit_code_path.exists():
                 logger.info("Update notification deferred: update still running")
@@ -8968,6 +8984,7 @@ class GatewayRunner:
             adapter = self.adapters.get(platform)
 
             if adapter and chat_id:
+                metadata = {"thread_id": thread_id} if thread_id else None
                 # Strip ANSI escape codes for clean display
                 output = re.sub(r'\x1b\[[0-9;]*m', '', output).strip()
                 if output:
@@ -8982,7 +8999,7 @@ class GatewayRunner:
                         msg = "✅ Hermes update finished successfully."
                     else:
                         msg = "❌ Hermes update failed. Check the gateway logs or run `hermes update` manually for details."
-                await adapter.send(chat_id, msg)
+                await adapter.send(chat_id, msg, metadata=metadata)
                 logger.info(
                     "Sent post-update notification to %s:%s (exit=%s)",
                     platform_str,
