@@ -143,7 +143,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Resolve Hermes home directory (respects HERMES_HOME override)
 from hermes_constants import get_hermes_home
-from utils import atomic_yaml_write, base_url_host_matches, is_truthy_value
+from utils import atomic_json_write, atomic_yaml_write, base_url_host_matches, is_truthy_value
 _hermes_home = get_hermes_home()
 
 # Load environment variables from ~/.hermes/.env first.
@@ -2040,7 +2040,7 @@ class GatewayRunner:
         # (they might become active again next restart)
 
         try:
-            path.write_text(json.dumps(new_counts))
+            atomic_json_write(path, new_counts, indent=None)
         except Exception:
             pass
 
@@ -2108,7 +2108,7 @@ class GatewayRunner:
             if session_key in counts:
                 del counts[session_key]
                 if counts:
-                    path.write_text(json.dumps(counts))
+                    atomic_json_write(path, counts, indent=None)
                 else:
                     path.unlink(missing_ok=True)
         except Exception:
@@ -5895,8 +5895,10 @@ class GatewayRunner:
             }
             if event.source.thread_id:
                 notify_data["thread_id"] = event.source.thread_id
-            (_hermes_home / ".restart_notify.json").write_text(
-                json.dumps(notify_data)
+            atomic_json_write(
+                _hermes_home / ".restart_notify.json",
+                notify_data,
+                indent=None,
             )
         except Exception as e:
             logger.debug("Failed to write restart notify file: %s", e)
@@ -5913,8 +5915,10 @@ class GatewayRunner:
             }
             if event.platform_update_id is not None:
                 dedup_data["update_id"] = event.platform_update_id
-            (_hermes_home / ".restart_last_processed.json").write_text(
-                json.dumps(dedup_data)
+            atomic_json_write(
+                _hermes_home / ".restart_last_processed.json",
+                dedup_data,
+                indent=None,
             )
         except Exception as e:
             logger.debug("Failed to write restart dedup marker: %s", e)
