@@ -7,6 +7,13 @@ REM ============================================================================
 REM Usage:
 REM   hermes.bat              — interactive chat (default)
 REM   hermes.bat setup        — first-time setup (mirrors setup-hermes.sh)
+REM   hermes.bat gateway run   — Run gateway in foreground
+REM   hermes.bat gateway start — Start gateway in background (using start command)
+REM   hermes.bat gateway stop  — Stop gateway processes
+REM   hermes.bat gateway status — Show gateway status
+REM   hermes.bat dashboard     — Start web UI dashboard
+REM   hermes.bat dashboard --stop   — Stop dashboard
+REM   hermes.bat dashboard --status — Show dashboard status
 REM   hermes.bat <command>    — any hermes subcommand
 REM ============================================================================
 
@@ -26,6 +33,186 @@ goto :do_setup
 :skip_setup
 
 REM ============================================================================
+REM Gateway command handling for Windows
+REM ============================================================================
+if not "%~1"=="gateway" goto :skip_gateway
+
+set "GATEWAY_SUBCMD=%~2"
+
+REM gateway run - run in foreground (default behavior, just pass through)
+if "%GATEWAY_SUBCMD%"=="run" goto :resolve_python
+
+REM gateway start - run in background window
+if "%GATEWAY_SUBCMD%"=="start" (
+    echo   [*] Starting Hermes Gateway in background...
+    goto :resolve_python_for_bg
+)
+
+REM gateway stop - stop all gateway processes
+if "%GATEWAY_SUBCMD%"=="stop" (
+    echo   [*] Stopping Hermes Gateway...
+    taskkill /f /im python.exe /fi "WINDOWTITLE eq Hermes Gateway" 2>nul
+    taskkill /f /im python.exe /fi "COMMANDLINE eq *hermes_cli.main gateway*" 2>nul
+    echo   [OK] Gateway stopped
+    exit /b 0
+)
+
+REM gateway status - show status
+if "%GATEWAY_SUBCMD%"=="status" (
+    echo   [*] Checking Gateway status...
+    tasklist /fi "WINDOWTITLE eq Hermes Gateway" 2>nul | findstr /i python >nul
+    if %ERRORLEVEL%==0 (
+        echo   [OK] Gateway is running
+    ) else (
+        tasklist /fi "COMMANDLINE eq *hermes_cli.main gateway*" 2>nul | findstr /i python >nul
+        if %ERRORLEVEL%==0 (
+            echo   [OK] Gateway is running
+        ) else (
+            echo   [!] Gateway is not running
+        )
+    )
+    exit /b 0
+)
+
+REM For other gateway commands (install, uninstall, restart, etc.), pass through
+goto :resolve_python
+
+:resolve_python_for_bg
+REM Find Python for background execution
+set "PYTHON_EXE="
+
+if exist "%HERMES_DIR%\venv\Scripts\python.exe" (
+    set "PYTHON_EXE=%HERMES_DIR%\venv\Scripts\python.exe"
+    goto :run_gateway_bg
+)
+
+if exist "%HERMES_DIR%\.venv\Scripts\python.exe" (
+    set "PYTHON_EXE=%HERMES_DIR%\.venv\Scripts\python.exe"
+    goto :run_gateway_bg
+)
+
+if defined VIRTUAL_ENV (
+    if exist "%VIRTUAL_ENV%\Scripts\python.exe" (
+        set "PYTHON_EXE=%VIRTUAL_ENV%\Scripts\python.exe"
+        goto :run_gateway_bg
+    )
+)
+
+echo   [!] No virtual environment found. Run "hermes.bat setup" first.
+exit /b 1
+
+:run_gateway_bg
+REM Run gateway in background with a hidden window
+start "Hermes Gateway" /min "%PYTHON_EXE%" -m hermes_cli.main gateway run
+echo   [OK] Gateway started in background
+exit /b 0
+
+:skip_gateway
+
+REM ============================================================================
+REM Dashboard command handling for Windows
+REM ============================================================================
+if not "%~1"=="dashboard" goto :skip_dashboard
+
+set "DASHBOARD_SUBCMD=%~2"
+
+REM dashboard --stop - stop all dashboard processes
+if "%DASHBOARD_SUBCMD%"=="--stop" (
+    echo   [*] Stopping Hermes Dashboard...
+    taskkill /f /im python.exe /fi "WINDOWTITLE eq Hermes Dashboard" 2>nul
+    taskkill /f /im python.exe /fi "COMMANDLINE eq *hermes_cli.main dashboard*" 2>nul
+    echo   [OK] Dashboard stopped
+    exit /b 0
+)
+
+REM dashboard --status - show status
+if "%DASHBOARD_SUBCMD%"=="--status" (
+    echo   [*] Checking Dashboard status...
+    tasklist /fi "WINDOWTITLE eq Hermes Dashboard" 2>nul | findstr /i python >nul
+    if %ERRORLEVEL%==0 (
+        echo   [OK] Dashboard is running
+    ) else (
+        tasklist /fi "COMMANDLINE eq *hermes_cli.main dashboard*" 2>nul | findstr /i python >nul
+        if %ERRORLEVEL%==0 (
+            echo   [OK] Dashboard is running
+        ) else (
+            echo   [!] Dashboard is not running
+        )
+    )
+    exit /b 0
+)
+
+REM For dashboard run (foreground) and other dashboard args, pass through
+REM Check Node.js availability first
+where npm >nul 2>&1
+if errorlevel 1 (
+    echo   [!] Node.js is required for the Dashboard but is not installed.
+    echo.
+    echo   Please install Node.js:
+    echo     https://nodejs.org/
+    echo.
+    echo   After installation, restart your terminal and try again.
+    exit /b 1
+)
+
+REM Check and install web dependencies if needed
+if not exist "%HERMES_DIR%\web\node_modules" (
+    echo   [*] Installing web UI dependencies...
+    cd /d "%HERMES_DIR%\web"
+    npm install
+    if errorlevel 1 (
+        echo   [!] Failed to install web UI dependencies.
+        cd /d "%HERMES_DIR%"
+        exit /b 1
+    )
+    echo   [OK] Web UI dependencies installed
+    cd /d "%HERMES_DIR%"
+)
+
+REM Find Git Bash for npm commands (needed for Unix-style scripts)
+set "GIT_BASH="
+if defined HERMES_GIT_BASH_PATH (
+    if exist "%HERMES_GIT_BASH_PATH%" (
+        set "GIT_BASH=%HERMES_GIT_BASH_PATH%"
+    )
+)
+if not defined GIT_BASH (
+    if exist "%ProgramFiles%\Git\bin\bash.exe" (
+        set "GIT_BASH=%ProgramFiles%\Git\bin\bash.exe"
+    )
+)
+
+REM Pre-build web UI (Python will skip if already built)
+echo   [*] Building web UI...
+cd /d "%HERMES_DIR%\web"
+if defined GIT_BASH (
+    "%GIT_BASH%" -c "npm run build"
+) else (
+    npm run build
+)
+if errorlevel 1 (
+    echo   [!] Web UI build failed.
+    echo.
+    echo   Common causes:
+    echo     - Missing dependencies: run "npm install" in web directory
+    echo     - Node.js version mismatch: requires Node.js 18+
+    echo     - Permission issues: try running as administrator
+    echo.
+    echo   Manual fix:
+    echo     cd web
+    echo     npm install
+    echo     npm run build
+    cd /d "%HERMES_DIR%"
+    exit /b 1
+)
+echo   [OK] Web UI built
+cd /d "%HERMES_DIR%"
+
+goto :resolve_python
+
+:skip_dashboard
+
+REM ============================================================================
 REM Normal launcher (mirrors Unix hermes shim)
 REM ============================================================================
 
@@ -39,6 +226,8 @@ set PYTHONIOENCODING=utf-8
 
 REM --- Locate Python (3-step cascade, auto-init if no venv) ---
 set "PYTHON_EXE="
+
+:resolve_python
 
 REM 1. venv relative to this script (source checkout)
 if exist "%HERMES_DIR%\venv\Scripts\python.exe" (
@@ -352,16 +541,29 @@ echo.
 echo     2. Start chatting:
 echo        hermes.bat
 echo.
+echo     3. Start messaging gateway:
+echo        hermes.bat gateway run      (foreground)
+echo        hermes.bat gateway start    (background)
+echo.
 echo   Other commands:
 echo     hermes.bat doctor    - Diagnose issues
 echo     hermes.bat status    - Check configuration
 echo     hermes.bat tools     - Configure tools
 echo     hermes.bat model     - Choose LLM provider
+echo     hermes.bat gateway status - Check gateway status
+echo     hermes.bat gateway stop    - Stop gateway
+echo     hermes.bat dashboard       - Start web UI dashboard
+echo     hermes.bat dashboard --stop - Stop dashboard
 echo.
 
 set /p "RUN_WIZARD=Run the setup wizard now? [Y/n] "
-if /i "%RUN_WIZARD%"=="n" exit /b 0
+if errorlevel 1 goto :exit_setup
+if /i "%RUN_WIZARD%"=="n" goto :exit_setup
 
 echo.
 "%VENV_PYTHON%" -m hermes_cli.main setup
-exit /b %ERRORLEVEL%
+if errorlevel 1 goto :exit_setup
+exit /b 0
+
+:exit_setup
+exit /b 0
